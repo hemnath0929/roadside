@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔧 Live Tracking — Socket Test Client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --surface2: #1c2230;
+      --border:   #30363d;
+      --accent:   #f97316;
+      --accent2:  #3b82f6;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --yellow:   #eab308;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --radius:   10px;
+    }
+
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px rgba(249,115,22,.35);
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header span { font-size: .8rem; color: var(--muted); }
+
+    /* ── Status bar ─────────────────────────────────────── */
+    #status-bar {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      margin-bottom: 24px;
+      font-size: .85rem;
+    }
+    #status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--red);
+      transition: background .3s;
+      flex-shrink: 0;
+    }
+    #status-dot.connected   { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    #status-dot.connecting  { background: var(--yellow); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: .8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Form elements ──────────────────────────────────── */
+    label { font-size: .78rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: .8rem;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      font-family: "Inter", sans-serif;
+      transition: opacity .2s, transform .1s;
+    }
+    button:active { transform: scale(.97); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--accent);  color: #fff; }
+    .btn-blue     { background: var(--accent2); color: #fff; }
+    .btn-green    { background: var(--green);   color: #000; }
+    .btn-red      { background: var(--red);     color: #fff; }
+    .btn-outline  {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Location sim ───────────────────────────────────── */
+    .sim-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(34,197,94,.12);
+      border: 1px solid rgba(34,197,94,.3);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: .72rem;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    .sim-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .sim-badge .dot.inactive { background: var(--muted); animation: none; }
+    .sim-badge .dot.active   { animation: pulse 1s infinite; }
+
+    /* ── Log ────────────────────────────────────────────── */
+    #log {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      height: 540px;
+      overflow-y: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: .73rem;
+      line-height: 1.7;
+      scroll-behavior: smooth;
+    }
+    #log::-webkit-scrollbar { width: 6px; }
+    #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .log-entry { border-bottom: 1px solid rgba(48,54,61,.5); padding: 4px 0; }
+    .log-time  { color: var(--muted); margin-right: 8px; user-select: none; }
+
+    .log-IN    { color: #60a5fa; }   /* blue — server→client */
+    .log-OUT   { color: #f97316; }   /* orange — client→server */
+    .log-INFO  { color: #8b949e; }   /* grey */
+    .log-OK    { color: #22c55e; }   /* green */
+    .log-ERROR { color: #ef4444; }   /* red */
+
+    /* ── Location live card ─────────────────────────────── */
+    #location-display {
+      background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(249,115,22,.08));
+      border: 1px solid rgba(59,130,246,.25);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: .78rem;
+      margin-top: 14px;
+      min-height: 90px;
+    }
+    .loc-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .loc-key { color: var(--muted); }
+    .loc-val { color: var(--text); font-weight: 500; }
+
+    /* ── Mini event buttons ─────────────────────────────── */
+    .event-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* ── Clear log btn ──────────────────────────────────── */
+    .log-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔧</div>
+  <div>
+    <h1>Live Tracking — Socket Test Client</h1>
+    <span>Roadside Assistance &amp; Emergency Support</span>
+  </div>
+</header>
+
+<!-- Connection status bar -->
+<div id="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">Disconnected</span>
+</div>
+
+<div class="grid">
+
+  <!-- ── Left column: Controls ── -->
+  <div>
+
+    <!-- Server config -->
+    <div class="card" style="margin-bottom:16px">
+      <h2>Connection</h2>
+      <label>Server URL</label>
+      <input id="serverUrl" value="http://localhost:5000" />
+      <div class="btn-group">
+        <button class="btn-primary" id="btnConnect">Connect</button>
+        <button class="btn-red"     id="btnDisconnect" disabled>Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Room controls -->
+    <div class="card" style="margin-bottom:16px">
+      <h2>Room</h2>
+      <label>Request ID</label>
+      <input id="requestId" value="REQ_001" />
+      <label>User / Mechanic ID</label>
+      <input id="userId" value="USER_123" />
+      <label>Role</label>
+      <select id="role">
+        <option value="user">user</option>
+        <option value="mechanic">mechanic</option>
+      </select>
+      <div class="btn-group">
+        <button class="btn-blue"    id="btnJoin"  disabled>Join Room</button>
+        <button class="btn-outline" id="btnLeave" disabled>Leave Room</button>
+      </div>
+    </div>
+
+    <!-- Mechanic: location simulator -->
+    <div class="card" style="margin-bottom:16px">
+      <h2>Location Simulator (Mechanic)</h2>
+      <div class="sim-badge">
+        <div class="dot inactive" id="simDot"></div>
+        <span id="simStatus">Idle</span>
+      </div>
+      <label>Mechanic ID</label>
+      <input id="mechanicId" value="MECH_456" />
+      <label>Start Lat</label>
+      <input id="startLat" type="number" value="10.9988" step="0.0001" />
+      <label>Start Lng</label>
+      <input id="startLng" type="number" value="76.9587" step="0.0001" />
+      <div class="btn-group">
+        <button class="btn-green" id="btnStartSim" disabled>▶ Start (3s interval)</button>
+        <button class="btn-red"   id="btnStopSim"  disabled>■ Stop</button>
+        <button class="btn-outline" id="btnSendOnce" disabled>Send Once</button>
+      </div>
+    </div>
+
+    <!-- Status &amp; lifecycle events -->
+    <div class="card">
+      <h2>Events</h2>
+      <label>Status to broadcast</label>
+      <select id="statusSelect">
+        <option value="accepted">accepted</option>
+        <option value="on_the_way">on_the_way</option>
+        <option value="nearby">nearby</option>
+        <option value="arrived">arrived</option>
+        <option value="in_progress">in_progress</option>
+        <option value="completed">completed</option>
+      </select>
+      <div class="event-grid">
+        <button class="btn-outline" id="btnStatus"    disabled>Send Status</button>
+        <button class="btn-outline" id="btnArrived"   disabled>Mechanic Arrived</button>
+        <button class="btn-green"   id="btnCompleted" disabled>Service Completed</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Right column: Log + live location ── -->
+  <div>
+    <div class="card">
+      <div class="log-header">
+        <h2 style="margin:0">Event Log</h2>
+        <button class="btn-outline" style="font-size:.72rem;padding:4px 10px" id="btnClearLog">Clear</button>
+      </div>
+      <div id="log"><div class="log-entry log-INFO"><span class="log-time">--:--:--</span>Waiting for connection…</div></div>
+
+      <!-- Live location display -->
+      <div id="location-display">
+        <div style="color:var(--muted);font-size:.72rem;margin-bottom:8px">📍 LIVE MECHANIC LOCATION</div>
+        <div id="locContent" style="color:var(--muted)">No location received yet.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Socket.IO client from CDN -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+
+  const elLog        = $("log");
+  const elDot        = $("status-dot");
+  const elStatusText = $("status-text");
+  const elSimDot     = $("simDot");
+  const elSimStatus  = $("simStatus");
+  const elLocContent = $("locContent");
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let socket       = null;
+  let simInterval  = null;
+  let simLat       = 0;
+  let simLng       = 0;
+  let simTick      = 0;
+
+  // ── Log helper ────────────────────────────────────────────────────────────
+  function log(msg, type = "INFO") {
+    const now    = new Date();
+    const time   = now.toTimeString().slice(0,8);
+    const entry  = document.createElement("div");
+    entry.className = `log-entry log-${type}`;
+    entry.innerHTML = `<span class="log-time">${time}</span>${escHtml(msg)}`;
+    elLog.appendChild(entry);
+    elLog.scrollTop = elLog.scrollHeight;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ── Connection ────────────────────────────────────────────────────────────
+  $("btnConnect").addEventListener("click", () => {
+    const url = $("serverUrl").value.trim();
+    if (!url) return log("Enter a server URL first.", "ERROR");
+    if (socket && socket.connected) return log("Already connected.", "INFO");
+
+    setStatus("connecting");
+    log(`Connecting to ${url} …`, "INFO");
+
+    socket = io(url, { transports: ["websocket", "polling"] });
+
+    // ── Built-in events
+    socket.on("connect", () => {
+      setStatus("connected");
+      log(`Connected — socketId: ${socket.id}`, "OK");
+      setConnectedUI(true);
+    });
+
+    socket.on("disconnect", reason => {
+      setStatus("disconnected");
+      log(`Disconnected: ${reason}`, "ERROR");
+      setConnectedUI(false);
+      stopSim();
+    });
+
+    socket.on("connect_error", err => {
+      setStatus("disconnected");
+      log(`Connection error: ${err.message}`, "ERROR");
+    });
+
+    // ── App events (Server → Client)
+    socket.on("room-joined", data => {
+      log(`✅ room-joined: ${JSON.stringify(data)}`, "OK");
+    });
+
+    socket.on("mechanic-location-live", data => {
+      log(`📍 mechanic-location-live: lat=${data.lat}, lng=${data.lng}, speed=${data.speed}`, "IN");
+      renderLocation(data);
+    });
+
+    socket.on("request-status-live", data => {
+      log(`🔄 request-status-live: status=${data.status}`, "IN");
+    });
+
+    socket.on("mechanic-arrived-live", data => {
+      log(`🚗 mechanic-arrived-live: ${data.message}`, "IN");
+    });
+
+    socket.on("service-completed-live", data => {
+      log(`✔️ service-completed-live: ${data.summary}`, "IN");
+    });
+
+    socket.on("tracking-error", data => {
+      log(`❌ tracking-error [${data.code}]: ${data.message}`, "ERROR");
+    });
+
+    socket.on("member-disconnected", data => {
+      log(`👋 member-disconnected from room=${data.requestId}`, "INFO");
+    });
+  });
+
+  $("btnDisconnect").addEventListener("click", () => {
+    if (socket) { socket.disconnect(); socket = null; }
+  });
+
+  // ── Room ──────────────────────────────────────────────────────────────────
+  $("btnJoin").addEventListener("click", () => {
+    const payload = {
+      requestId: $("requestId").value.trim(),
+      userId:    $("userId").value.trim(),
+      role:      $("role").value,
+    };
+    if (!payload.requestId || !payload.userId) {
+      return log("requestId and userId are required.", "ERROR");
+    }
+    socket.emit("join-request-room", payload);
+    log(`→ join-request-room: ${JSON.stringify(payload)}`, "OUT");
+    setJoinedUI(true);
+  });
+
+  $("btnLeave").addEventListener("click", () => {
+    const requestId = $("requestId").value.trim();
+    socket.emit("leave-request-room", { requestId });
+    log(`→ leave-request-room: requestId=${requestId}`, "OUT");
+    setJoinedUI(false);
+    stopSim();
+  });
+
+  // ── Location Simulator ────────────────────────────────────────────────────
+  function buildLocationPayload() {
+    return {
+      requestId:  $("requestId").value.trim(),
+      mechanicId: $("mechanicId").value.trim(),
+      lat:        simLat,
+      lng:        simLng,
+      heading:    (simTick * 15) % 360,
+      speed:      20 + Math.random() * 20,
+      updatedAt:  Date.now(),
+    };
+  }
+
+  function sendLocation() {
+    if (!socket || !socket.connected) return;
+    // Drift a little each tick to simulate movement
+    simLat += (Math.random() - 0.5) * 0.0008;
+    simLng += (Math.random() - 0.5) * 0.0008;
+    simTick++;
+    const payload = buildLocationPayload();
+    socket.emit("mechanic-location-update", payload);
+    log(`→ mechanic-location-update: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`, "OUT");
+  }
+
+  $("btnStartSim").addEventListener("click", () => {
+    if (simInterval) return;
+    simLat = parseFloat($("startLat").value) || 10.9988;
+    simLng = parseFloat($("startLng").value) || 76.9587;
+    simTick = 0;
+    sendLocation(); // immediate first send
+    simInterval = setInterval(sendLocation, 3000);
+    elSimDot.className = "dot active";
+    elSimStatus.textContent = "Simulating (3s)";
+    $("btnStartSim").disabled = true;
+    $("btnStopSim").disabled  = false;
+    log("▶ Location simulator started (every 3 seconds)", "INFO");
+  });
+
+  $("btnStopSim").addEventListener("click", stopSim);
+
+  $("btnSendOnce").addEventListener("click", () => {
+    simLat = parseFloat($("startLat").value) || 10.9988;
+    simLng = parseFloat($("startLng").value) || 76.9587;
+    sendLocation();
+  });
+
+  function stopSim() {
+    if (simInterval) {
+      clearInterval(simInterval);
+      simInterval = null;
+    }
+    elSimDot.className = "dot inactive";
+    elSimStatus.textContent = "Idle";
+    $("btnStartSim").disabled = false;
+    $("btnStopSim").disabled  = true;
+  }
+
+  // ── Status / lifecycle events ─────────────────────────────────────────────
+  $("btnStatus").addEventListener("click", () => {
+    const payload = {
+      requestId: $("requestId").value.trim(),
+      status:    $("statusSelect").value,
+    };
+    socket.emit("request-status-update", payload);
+    log(`→ request-status-update: ${JSON.stringify(payload)}`, "OUT");
+  });
+
+  $("btnArrived").addEventListener("click", () => {
+    const payload = {
+      requestId:  $("requestId").value.trim(),
+      mechanicId: $("mechanicId").value.trim(),
+    };
+    socket.emit("mechanic-arrived", payload);
+    log(`→ mechanic-arrived: ${JSON.stringify(payload)}`, "OUT");
+  });
+
+  $("btnCompleted").addEventListener("click", () => {
+    const payload = {
+      requestId:  $("requestId").value.trim(),
+      mechanicId: $("mechanicId").value.trim(),
+      summary:    "Flat tyre repaired. Service complete.",
+    };
+    socket.emit("service-completed", payload);
+    log(`→ service-completed: ${JSON.stringify(payload)}`, "OUT");
+  });
+
+  // ── Log clear ─────────────────────────────────────────────────────────────
+  $("btnClearLog").addEventListener("click", () => {
+    elLog.innerHTML = "";
+    log("Log cleared.", "INFO");
+  });
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  function setStatus(state) {
+    elDot.className = state;
+    const labels = {
+      connected:    "🟢 Connected",
+      connecting:   "🟡 Connecting…",
+      disconnected: "🔴 Disconnected",
+    };
+    elStatusText.textContent = labels[state] || state;
+  }
+
+  function setConnectedUI(on) {
+    $("btnConnect").disabled    =  on;
+    $("btnDisconnect").disabled = !on;
+    $("btnJoin").disabled       = !on;
+  }
+
+  function setJoinedUI(on) {
+    $("btnLeave").disabled      = !on;
+    $("btnStartSim").disabled   = !on;
+    $("btnSendOnce").disabled   = !on;
+    $("btnStatus").disabled     = !on;
+    $("btnArrived").disabled    = !on;
+    $("btnCompleted").disabled  = !on;
+  }
+
+  function renderLocation(data) {
+    elLocContent.innerHTML = `
+      <div class="loc-row"><span class="loc-key">Mechanic ID</span><span class="loc-val">${escHtml(data.mechanicId)}</span></div>
+      <div class="loc-row"><span class="loc-key">Latitude</span><span class="loc-val">${data.lat.toFixed(6)}</span></div>
+      <div class="loc-row"><span class="loc-key">Longitude</span><span class="loc-val">${data.lng.toFixed(6)}</span></div>
+      <div class="loc-row"><span class="loc-key">Heading</span><span class="loc-val">${data.heading ?? "—"}°</span></div>
+      <div class="loc-row"><span class="loc-key">Speed</span><span class="loc-val">${data.speed ? data.speed.toFixed(1) + " km/h" : "—"}</span></div>
+      <div class="loc-row"><span class="loc-key">Updated</span><span class="loc-val">${new Date(data.updatedAt).toLocaleTimeString()}</span></div>
+    `;
+  }
+</script>
+</body>
+</html>
