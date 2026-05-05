@@ -30,7 +30,7 @@ function broadcastStatus(requestId, status) {
       status,
       updatedAt: Date.now(),
     });
-  } catch {
+  } catch (_err) {
     // Socket.IO not ready — silently ignore (REST still works)
   }
 }
@@ -134,9 +134,10 @@ async function getPendingRequests(req, res, next) {
     const { lat, lng, radius = 10000 } = req.query; // radius in metres
 
     let filter = { status: "pending" };
+    const useGeo = lat && lng;
 
     // If mechanic provides location, narrow by proximity
-    if (lat && lng) {
+    if (useGeo) {
       filter.userLocation = {
         $near: {
           $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
@@ -145,10 +146,14 @@ async function getPendingRequests(req, res, next) {
       };
     }
 
-    const requests = await ServiceRequest.find(filter)
-      .sort({ createdAt: 1 }) // oldest first (FIFO)
-      .limit(20)
-      .populate("user", "name phone profilePhoto");
+    // NOTE: Cannot use .sort() with $near — MongoDB does not allow both
+    let query = ServiceRequest.find(filter).limit(20).populate("user", "name phone profilePhoto");
+
+    if (!useGeo) {
+      query = query.sort({ createdAt: 1 }); // oldest first (FIFO) — only when no geo filter
+    }
+
+    const requests = await query;
 
     res.status(200).json({ success: true, count: requests.length, requests });
   } catch (err) {

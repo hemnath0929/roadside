@@ -146,6 +146,8 @@ serviceRequestSchema.pre("save", function (next) {
   next();
 });
 
-module.exports = mongoose.model("ServiceRequest", serviceRequestSchema);
+const ServiceRequest = mongoose.model("ServiceRequest", serviceRequestSchema);
+
+module.exports = ServiceRequest;
 module.exports.SERVICE_TYPES = SERVICE_TYPES;
 module.exports.STATUS_FLOW   = STATUS_FLOW;
